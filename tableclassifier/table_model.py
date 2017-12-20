@@ -284,6 +284,23 @@ class TableModel(BaseEstimator, TransformerMixin):
         '''
         return self._output.steps[1][1]._labeler.classes_.tolist()
 
+    @classmethod
+    def from_config(cls, config):
+        '''
+        Build up a table model from a configuration file, as passed in from YAML.
+        >>> from tableclassifier import table_model
+        >>> table_model.TableModel.from_config({'output': 'a', 'input': {'b': 'numeric', 'c': 'percentage', 'd': 'categorical'}})
+        TableModel(output_name='a',
+              transformers={'b': NumericColumn(), 'c': PercentageColumn(), 'd': CategoricalColumn()})
+        '''
+        column_map = {
+            'numeric': NumericColumn,
+            'percentage': PercentageColumn,
+            'categorical': CategoricalColumn
+        }
+        input_config = {name: column_map[value]() for name, value in config['input'].items()}
+        return cls(input_config, config['output'])
+
 
 class KerasClassifierModel(BaseEstimator, ClassifierMixin):
     '''
