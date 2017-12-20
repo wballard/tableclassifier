@@ -12,7 +12,7 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
     Base class for Keras classification models.
     '''
 
-    def __init__(self, verbose=1, epochs=64, batch_size=512):
+    def __init__(self, verbose=1, epochs=64, batch_size=128):
         '''
         Parameters
         ----------
@@ -36,12 +36,11 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
         ----------
         values : 1D numpy array of values
         '''
-        print(values)
         labels, counts = np.unique(values, return_counts=True)
         if len(labels) == 1:
             return None
         class_weight={
-            label: len(y) / count
+            label: len(values) / count
             for (label, count) in zip(labels, counts)
         }
         return class_weight
@@ -58,6 +57,7 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
         # Returns
             A numpy array of class predictions.
         '''
+        print(x)
         proba = self.model.predict(x, batch_size=batch_size, verbose=verbose)
         if proba.shape[-1] > 1:
             return proba.argmax(axis=-1)
