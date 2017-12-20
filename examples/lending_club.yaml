@@ -1,0 +1,35 @@
+# TableModel configuration for the the lending clud dataset
+# https://www.kaggle.com/wendykan/lending-club-loan-data
+
+output: loan_status
+input:
+  loan_amount: numeric
+  funded_amnt: numeric
+  funded_amnt_inv: numeric
+  term: categorical
+  int_rate: percentage
+  installment: numeric
+  grade: categorical
+  sub_grade: categorical
+  emp_length: categorical
+  addr_state: categorical
+  home_ownership: categorical
+  annual_inc: numeric
+  annual_inc_joint: numeric
+  dti: numeric
+  dti_joint: numeric
+  open_acc: numeric
+  total_acc: numeric
+  pub_rec: numeric
+  tot_coll_amt: numeric
+  total_bal_il: numeric
+  tot_cur_bal: numeric
+  revol_bal: numeric
+  revol_util: percentage
+  mths_since_last_delinq: numeric
+  mths_since_last_record: numeric
+  mths_since_last_major_derog: numeric
+  inq_fi: numeric
+  inq_last_12m: numeric
+  all_util: numeric
+  acc_now_delinq: numeric

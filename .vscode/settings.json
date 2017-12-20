@@ -1,0 +1,8 @@
+{
+    "python.pythonPath": "C:\\Users\\Wball\\Anaconda3\\python.exe",
+    "python.unitTest.pyTestArgs": [
+        "--doctest-modules",
+        "tableclassifier"
+    ],
+    "python.unitTest.pyTestEnabled": true
+}

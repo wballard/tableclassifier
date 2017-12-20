@@ -1,0 +1,30 @@
+swagger: "2.0"
+
+info:
+  title: TableClassifier Server
+  version: "0.0.1"
+
+paths:
+  /classify:
+    post:
+      summary: Classify a JSON hash of data
+      description: Generate a JSON response with a single key 'label'
+      operationId: tableclassifier.server.classify
+      consumes:
+        - text/plain
+      produces:
+        - application/json
+      responses:
+        200:
+          description: classification response
+          schema:
+            type: string
+          examples:
+            "application/json": "{'label': 'spam', 'score': 0.7 }"
+      parameters:
+        - name: body
+          description: complete content of an RFC822 email
+          in: body
+          required: true
+          schema:
+            type: string
