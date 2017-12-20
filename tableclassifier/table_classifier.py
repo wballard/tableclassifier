@@ -57,7 +57,6 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
         # Returns
             A numpy array of class predictions.
         '''
-        print(x)
         proba = self.model.predict(x, batch_size=batch_size, verbose=verbose)
         if proba.shape[-1] > 1:
             return proba.argmax(axis=-1)

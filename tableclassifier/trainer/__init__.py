@@ -5,6 +5,7 @@ Train a TableModel on a table of data.
 import json
 import pickle
 
+import numpy
 import pandas
 import yaml
 
@@ -12,6 +13,41 @@ from .. import table_model
 from .. import table_classifier
 
 import keras
+
+class TrainedModel():
+    '''
+    Trained model is a loading and saving container for a TableModel and a
+    KerasWideAndDeepClassifierModel. 
+    '''
+    def __init__(self, data_model, classifier_model):
+        self.data_model = data_model
+        self.classifier_model = classifier_model
+
+    def predict(self, dict_from_json):
+        '''
+        Parameters
+        ----------
+        dict_from_json : dict
+            Name value pairs that are a single sample to encode and predict.
+        '''
+        to_predict = self.data_model.transform_sample(dict_from_json)
+        prediction = self.classifier_model.predict(to_predict)
+        ordinal = numpy.min([prediction[0], len(self.data_model.classes) -1])
+        return self.data_model.classes[ordinal]
+
+
+    def __getstate__(self):
+        return {
+            'data_model': self.data_model,
+            'classifier_config': self.classifier_model.model.get_config(),
+            'classifier_weights': self.classifier_model.model.get_weights()
+        } 
+
+    def __setstate__(self, state):
+        self.data_model = state['data_model']
+        self.classifier_model = table_classifier.KerasWideAndDeepClassifierModel()
+        self.classifier_model.model = keras.Model.from_config(state['classifier_config'])
+        self.classifier_model.model.set_weights(state['classifier_weights'])
 
 
 def train(arguments):
@@ -21,33 +57,24 @@ def train(arguments):
     with open(arguments['<configuration_yaml>'], 'r', encoding='utf-8') as configuration_file:
         configuration = yaml.safe_load(configuration_file)
         data_model = table_model.TableModel.from_configuration(configuration)
-        print(data_model)
 
     data = pandas.read_csv(arguments['<input_data_csv>'])
     x, y = data_model.fit_transform(data)
-    print(x)
-    print(y)
 
     classifier = table_classifier.KerasWideAndDeepClassifierModel()
     classifier.fit(x, y)
 
-    classifier_model_config = classifier.model.get_config()
-    classifier_model_weights = classifier.model.get_weights()
+    trained_model = TrainedModel(data_model, classifier)
 
     # save out the trained model
     with open(arguments['<output_trained_model>'], 'wb') as model_file:
-        pickle.dump(data_model, model_file)
+        pickle.dump(trained_model, model_file)
     
+    # read the trained model and self check
+    print('self check')
     with open(arguments['<output_trained_model>'], 'rb') as model_file:
-        data_model = pickle.load(model_file)
-        data.drop('loan_status', axis=1, inplace=True)
-        print(data_model)
-        print(data_model.classes)
+        trained_model = pickle.load(model_file)
         one = json.loads(data.iloc[0].to_json(None))
-        print(one)
-        to_predict = data_model.transform_sample(one)
-        classifier = table_classifier.KerasWideAndDeepClassifierModel(epochs=1)
-        classifier.model = keras.Model.from_config(classifier_model_config)
-        classifier.model.set_weights(classifier_model_weights)
-        predictions = classifier.predict(to_predict)
-        print(predictions)
+        predictions = trained_model.predict(one)
+        print('Predicting: ', one)
+        print('Prediction', predictions)
