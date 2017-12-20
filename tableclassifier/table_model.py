@@ -1,12 +1,12 @@
 '''
-Table based data configured and trained with Keras.
+Table based data transformed for machine learning.
 '''
 
-import keras
 import numpy as np
+import pandas as pd
 from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.pipeline import FeatureUnion, make_pipeline
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, MinMaxScaler
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder
 
 
 class ExtractColumn(BaseEstimator, TransformerMixin):
@@ -36,6 +36,7 @@ class ExtractColumn(BaseEstimator, TransformerMixin):
         data_frame : Pandas DataFrame
         '''
         return data_frame[self._column_or_series_name]
+            
 
     def __repr__(self):
         '''
@@ -65,7 +66,7 @@ class PercentageColumn(BaseEstimator, TransformerMixin):
             elif x:
                 return x / 100.0
             else:
-                return np.nan
+                return 0
 
         return np.nan_to_num(np.array(X.map(percent)).reshape(-1, 1)).astype(np.float32)
 
@@ -101,8 +102,7 @@ class NumericColumn(BaseEstimator, TransformerMixin):
         '''
         Fit the standardization.
         '''
-        as_feature_array = np.array(X).reshape(-1, 1)
-        zeroed = np.nan_to_num(as_feature_array)
+        zeroed = pd.DataFrame(np.array(X).reshape(-1, 1)).fillna(0)
         self._transformer.fit(zeroed)
         return self
 
@@ -114,8 +114,7 @@ class NumericColumn(BaseEstimator, TransformerMixin):
         ----------
         X : pandas series or numpy array
         '''
-        as_feature_array = np.array(X).reshape(-1, 1)
-        zeroed = np.nan_to_num(as_feature_array)
+        zeroed = pd.DataFrame(np.array(X).reshape(-1, 1)).fillna(0)
         return self._transformer.transform(zeroed).astype(np.float32)
 
 
@@ -204,7 +203,6 @@ class TableModel(BaseEstimator, TransformerMixin):
                 'a': table_model.PercentageColumn(), \
                 'b': table_model.NumericColumn(), \
                 'c': table_model.CategoricalColumn(), \
-                'd': table_model.CategoricalColumn(), \
             }, \
             output_name='d' \
         )
@@ -243,19 +241,14 @@ class TableModel(BaseEstimator, TransformerMixin):
             Data frame containing both inputs and outputs in columns/series.
         '''
         if not hasattr(self, '_output'):
-            transformers = self.transformers.copy()
-            try:
-                self._output = make_pipeline(
-                    ExtractColumn(self.output_name),
-                    transformers[self.output_name]
-                )
-                del transformers[self.output_name]
-            except KeyError:
-                raise KeyError(
-                    '{0} has no transformer'.format(self.output_name))
+            # output is a categorical encoding column
+            self._output = make_pipeline(
+                ExtractColumn(self.output_name),
+                CategoricalColumn()
+            )
             # each column is an extraction and then a transformation
             pipelines = [(name, make_pipeline(ExtractColumn(name), transformer))
-                         for name, transformer in transformers.items()]
+                         for name, transformer in self.transformers.items()]
             self._input = FeatureUnion(pipelines)
         self._input.fit(data_frame)
         self._output.fit(data_frame)
@@ -275,6 +268,13 @@ class TableModel(BaseEstimator, TransformerMixin):
             self._output.transform(data_frame)
         )
 
+    def transform_sample(self, data):
+        '''
+        Transform a single sample dictionary, which likely came in from JSON.
+        '''
+        data = pd.DataFrame([data])
+        return self._input.transform(data)
+
     @property
     def classes(self):
         '''
@@ -285,11 +285,11 @@ class TableModel(BaseEstimator, TransformerMixin):
         return self._output.steps[1][1]._labeler.classes_.tolist()
 
     @classmethod
-    def from_config(cls, config):
+    def from_configuration(cls, config):
         '''
         Build up a table model from a configuration file, as passed in from YAML.
         >>> from tableclassifier import table_model
-        >>> table_model.TableModel.from_config({'output': 'a', 'input': {'b': 'numeric', 'c': 'percentage', 'd': 'categorical'}})
+        >>> table_model.TableModel.from_configuration({'output': 'a', 'input': {'b': 'numeric', 'c': 'percentage', 'd': 'categorical'}})
         TableModel(output_name='a',
               transformers={'b': NumericColumn(), 'c': PercentageColumn(), 'd': CategoricalColumn()})
         '''
@@ -300,178 +300,3 @@ class TableModel(BaseEstimator, TransformerMixin):
         }
         input_config = {name: column_map[value]() for name, value in config['input'].items()}
         return cls(input_config, config['output'])
-
-
-class KerasClassifierModel(BaseEstimator, ClassifierMixin):
-    '''
-    Base class for Keras classification models.
-    '''
-
-    def __init__(self, verbose=1, epochs=16, batch_size=512):
-        '''
-        Parameters
-        ----------
-        verbose : boolean
-            Show more output
-        epochs : int
-            Train this number of cycles
-        batch_size : int
-            This number of samples per batch
-        '''
-        self.verbose = verbose
-        self.epochs = epochs
-        self.batch_size = batch_size
-
-    def compute_class_weights(self, y):
-        '''
-        Compute the class weighting dictionary for use with
-        imbalanced classes.
-
-        Parameters
-        ----------
-        y : 1d numpy array
-        '''
-        labels, counts = np.unique(y, return_counts=True)
-        class_weight = {
-            label: len(y) / count
-            for (label, count) in zip(labels, counts)
-        }
-        return class_weight
-
-    def predict(self, x, batch_size=32, verbose=0):
-        '''
-        Generate class predictions for the input samples.
-        The input samples are processed batch by batch.
-        # Arguments
-            x: input data, as a Numpy array or list of Numpy arrays
-                (if the model has multiple inputs).
-            batch_size: integer.
-            verbose: verbosity mode, 0 or 1.
-        # Returns
-            A numpy array of class predictions.
-        '''
-        proba = self.model.predict(x, batch_size=batch_size, verbose=verbose)
-        if proba.shape[-1] > 1:
-            return proba.argmax(axis=-1)
-        else:
-            return (proba > 0.5).astype('int32')
-
-
-class KerasLogisticRegressionModel(KerasClassifierModel):
-    '''
-    Logistic regression implemented with Keras.
-    '''
-
-    def fit(self, x, y):
-        '''
-        Create and fit a logistic regression model
-
-        Parameters
-        ----------
-        x : 2d numpy array
-            0 dimension is batch, 1 dimension features
-        y : 1d numpy array
-            each entry is a class label
-        '''
-        class_weight = self.compute_class_weights(y)
-        y = keras.utils.to_categorical(y).astype(np.float32)
-        model = keras.models.Sequential()
-        # logistic regression is a one layer model
-        model.add(keras.layers.Dense(
-            y.shape[1], activation='sigmoid', input_dim=x.shape[1]))
-        model.compile(optimizer='adam', loss='categorical_crossentropy')
-        self.model = model
-        model.fit(x, y,
-                  epochs=self.epochs,
-                  batch_size=self.batch_size,
-                  verbose=self.verbose,
-                  class_weight=class_weight,
-                  callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=2)])
-        return self
-
-
-class KerasDeepClassifierModel(KerasClassifierModel):
-    '''
-    A dense, deep, normalized network implemented with Keras.
-    '''
-
-    def fit(self, x, y):
-        '''
-        Create and fit a logistic regression model
-
-        Parameters
-        ----------
-        x : 2d numpy array
-            0 dimension is batch, 1 dimension features
-        y : 1d numpy array
-            each entry is a class label
-        '''
-        class_weight = self.compute_class_weights(y)
-        y = keras.utils.to_categorical(y).astype(np.float32)
-        model = keras.models.Sequential()
-        model.add(keras.layers.Dense(
-            64, activation='relu', input_dim=x.shape[1]))
-        model.add(keras.layers.BatchNormalization())
-        model.add(keras.layers.Dense(64, activation='relu'))
-        model.add(keras.layers.BatchNormalization())
-        model.add(keras.layers.Dense(y.shape[1], activation='softmax'))
-        model.compile(optimizer='adam', loss='categorical_crossentropy')
-        self.model = model
-        model.fit(x, y,
-                  epochs=self.epochs,
-                  batch_size=self.batch_size,
-                  verbose=self.verbose,
-                  class_weight=class_weight,
-                  callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=2)])
-        return self
-
-
-class KerasWideAndDeepClassifierModel(KerasClassifierModel):
-    '''
-    Logistic regression implemented with Keras.
-    '''
-
-    def fit(self, x, y):
-        '''
-        Create and fit a logistic regression model
-
-        Parameters
-        ----------
-        x : 2d numpy array
-            0 dimension is batch, 1 dimension features
-        y : 1d numpy array
-            each entry is a class label
-        '''
-        class_weight = self.compute_class_weights(y)
-        y = keras.utils.to_categorical(y).astype(np.float32)
-
-        deep = keras.models.Sequential()
-        deep.add(keras.layers.Dense(
-            512, activation='relu', input_dim=x.shape[1]))
-        deep.add(keras.layers.BatchNormalization())
-        deep.add(keras.layers.Dense(512, activation='relu'))
-        deep.add(keras.layers.BatchNormalization())
-        deep.add(keras.layers.Dense(y.shape[1], activation='sigmoid'))
-
-        wide = keras.models.Sequential()
-        wide.add(keras.layers.Dense(
-            y.shape[1], activation='sigmoid', input_dim=x.shape[1]))
-
-        input = keras.layers.Input(shape=(x.shape[1],))
-        wide = wide(input)
-        deep = deep(input)
-        wide_deep = keras.layers.Concatenate()([wide, deep])
-        output = keras.layers.Dense(
-            y.shape[1], activation='softmax')(wide_deep)
-
-        model = keras.models.Model(inputs=[input], outputs=[output])
-
-        model.compile(optimizer='adam', loss='categorical_crossentropy')
-        self.model = model
-        model.fit(x, y,
-                  epochs=self.epochs,
-                  batch_size=self.batch_size,
-                  verbose=self.verbose,
-                  class_weight=class_weight,
-                  callbacks=[keras.callbacks.EarlyStopping(monitor='loss', patience=4)])
-        return self

@@ -3,7 +3,7 @@
 
 output: loan_status
 input:
-  loan_amount: numeric
+  loan_amnt: numeric
   funded_amnt: numeric
   funded_amnt_inv: numeric
   term: categorical

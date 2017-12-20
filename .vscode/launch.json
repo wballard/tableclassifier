@@ -57,7 +57,7 @@
             "envFile": "${workspaceFolder}/.env",
             "debugOptions": [],
             "args": [
-                "train", "./examples/lending_club.yaml", "./examples/current_and_default.csv", "./examples/lending_club.model"
+                "train", "./examples/lending_club.yaml", "./examples/lending_club.csv", "./examples/lending_club.model"
             ]
         },
         {
