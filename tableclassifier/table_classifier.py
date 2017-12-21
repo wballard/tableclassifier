@@ -12,7 +12,7 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
     Base class for Keras classification models.
     '''
 
-    def __init__(self, verbose=1, epochs=64, batch_size=128):
+    def __init__(self, verbose=1, epochs=256, batch_size=512):
         '''
         Parameters
         ----------
@@ -36,6 +36,7 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
         ----------
         values : 1D numpy array of values
         '''
+        values = np.ravel(values)
         labels, counts = np.unique(values, return_counts=True)
         if len(labels) == 1:
             return None
@@ -80,15 +81,20 @@ class KerasWideAndDeepClassifierModel(KerasClassifierModel):
         y : 1d numpy array
             each entry is a class label
         '''
-        y = np.ravel(y)
         class_weight = self.compute_class_weights(y)
+        print('class weight', class_weight)
         y = keras.utils.to_categorical(y).astype(np.float32)
 
+        HIDDEN = 512
+
         deep = keras.models.Sequential()
-        deep.add(keras.layers.Dense(
-            512, activation='relu', input_dim=x.shape[1]))
+        deep.add(keras.layers.Dense(HIDDEN, activation='relu', input_dim=x.shape[1]))
         deep.add(keras.layers.BatchNormalization())
-        deep.add(keras.layers.Dense(512, activation='relu'))
+        deep.add(keras.layers.Dense(HIDDEN, activation='relu'))
+        deep.add(keras.layers.BatchNormalization())
+        deep.add(keras.layers.Dense(HIDDEN//2, activation='relu'))
+        deep.add(keras.layers.BatchNormalization())
+        deep.add(keras.layers.Dense(HIDDEN//2, activation='relu'))
         deep.add(keras.layers.BatchNormalization())
         deep.add(keras.layers.Dense(y.shape[1], activation='sigmoid'))
 
@@ -99,9 +105,8 @@ class KerasWideAndDeepClassifierModel(KerasClassifierModel):
         input = keras.layers.Input(shape=(x.shape[1],))
         wide = wide(input)
         deep = deep(input)
-        wide_deep = keras.layers.Concatenate()([wide, deep])
-        output = keras.layers.Dense(
-            y.shape[1], activation = 'softmax')(wide_deep)
+        wide_deep = keras.layers.Add()([wide, deep])
+        output = keras.layers.Dense(y.shape[1], activation = 'sigmoid')(wide_deep)
 
         model=keras.models.Model(inputs = [input], outputs = [output])
 

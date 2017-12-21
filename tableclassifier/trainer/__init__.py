@@ -13,6 +13,7 @@ from .. import table_model
 from .. import table_classifier
 
 import keras
+import sklearn.metrics
 
 class TrainedModel():
     '''
@@ -78,3 +79,5 @@ def train(arguments):
         predictions = trained_model.predict(one)
         print('Predicting: ', one)
         print('Prediction', predictions)
+        predictions = trained_model.classifier_model.predict(x)
+        print('Accuracy {0:%}'.format(sklearn.metrics.accuracy_score(y, predictions)))

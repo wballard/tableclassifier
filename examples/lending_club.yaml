@@ -33,3 +33,5 @@ input:
   inq_last_12m: numeric
   all_util: numeric
   acc_now_delinq: numeric
+  application_type: categorical
+  

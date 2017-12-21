@@ -244,7 +244,7 @@ class TableModel(BaseEstimator, TransformerMixin):
             # output is a categorical encoding column
             self._output = make_pipeline(
                 ExtractColumn(self.output_name),
-                CategoricalColumn()
+                OutputLabelColumn()
             )
             # each column is an extraction and then a transformation
             pipelines = [(name, make_pipeline(ExtractColumn(name), transformer))
