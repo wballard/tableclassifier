@@ -32,9 +32,9 @@ class TrainedModel():
             Name value pairs that are a single sample to encode and predict.
         '''
         to_predict = self.data_model.transform_sample(dict_from_json)
-        prediction = self.classifier_model.predict(to_predict)
-        ordinal = numpy.min([prediction[0], len(self.data_model.classes) -1])
-        return self.data_model.classes[ordinal]
+        prediction, score = self.classifier_model.predict_score(to_predict)
+        ordinal = numpy.min([prediction, len(self.data_model.classes) -1])
+        return {'label': self.data_model.classes[ordinal], 'score': score}
 
 
     def __getstate__(self):

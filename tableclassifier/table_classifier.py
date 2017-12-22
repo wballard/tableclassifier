@@ -50,12 +50,16 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
         '''
         Generate class predictions for the input samples.
         The input samples are processed batch by batch.
-        # Arguments
-            x: input data, as a Numpy array or list of Numpy arrays
-                (if the model has multiple inputs).
-            batch_size: integer.
-            verbose: verbosity mode, 0 or 1.
-        # Returns
+
+        Parameters
+        ----------
+        x: input data, as a Numpy array or list of Numpy arrays
+            (if the model has multiple inputs).
+        batch_size: integer.
+        verbose: verbosity mode, 0 or 1.
+
+        Returns
+        -------
             A numpy array of class predictions.
         '''
         proba = self.model.predict(x, batch_size=batch_size, verbose=verbose)
@@ -63,6 +67,24 @@ class KerasClassifierModel(BaseEstimator, ClassifierMixin):
             return proba.argmax(axis=-1)
         else:
             return (proba > 0.5).astype('int32')
+
+    def predict_score(self, single_sample):
+        '''
+        Score a single sample.
+
+        Parameters
+        ----------
+        single_sample: input data numpy array
+
+        Returns
+        -------
+        (score, class_index) tuple
+        '''
+        proba = self.model.predict([single_sample])
+        class_index = proba.argmax(axis=-1)
+        return (class_index[0], proba[0][class_index[0]])
+
+
 
 
 class KerasWideAndDeepClassifierModel(KerasClassifierModel):
